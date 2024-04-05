@@ -1,0 +1,99 @@
+---
+title: "ridge and lasso regression"
+author: "Ran Zhang"
+date: "2024-04-05"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+data <- read.csv("C:/Users/zhang/OneDrive/Desktop/Project_stat_427/grouped_pd.csv")
+data <- data %>% 
+  select("CoC_est","Gov_Eff_est","Pol_Sta_est","Reg_Qua_est","Rule_Law_est","Voice_Act_est","GDP_current","Region_fh","PR_fh","CL_fh","Total_fh","hdi","le","gni_pc","coef_ineq","gii")
+data
+```
+
+```{r}
+set.seed(123)
+Z <- sample(nrow(data), .3*nrow(data))
+data_train <- data[Z,]
+data_test <- data[-Z,]
+
+#str(data_train)
+data_train <- na.omit(data_train)
+data_train$CoC_est <- as.numeric(data_train$CoC_est)
+
+# "Gov_Eff_est","Pol_Sta_est","Reg_Qua_est","Rule_Law_est","Voice_Act_est",
+predictor_vars <- c("GDP_current","Region_fh","PR_fh","CL_fh","Total_fh","hdi","le","gni_pc","coef_ineq","gii")
+
+x <- as.matrix(data_train[predictor_vars])
+
+y <- as.numeric(data_train$CoC_est)
+```
+
+
+```{r}
+## Ridge regression 
+library(glmnet)
+set.seed(123)
+rr_cv <- glmnet(x, y, alpha = 0)
+rr_cv
+```
+
+```{r}
+set.seed(123)
+ridge_model <- cv.glmnet(x, y, alpha = 0)
+ridge_model
+
+plot(ridge_model)
+
+optimal_lambda <- ridge_model$lambda.min
+optimal_lambda
+
+coef_values <- coef(ridge_model, s = optimal_lambda)
+coef_values
+```
+
+```{r}
+## Predicting MSE on ridge regression
+data_test <- na.omit(data_test)
+data_test$CoC_est <- as.numeric(data_test$CoC_est)
+x <- as.matrix(data_test[predictor_vars])
+y <- as.numeric(data_test$CoC_est)
+ridge_pred <- predict(ridge_model, newx = x, s = optimal_lambda)
+ridge_mse <- mean((ridge_pred - y)^2)
+ridge_mse
+```
+
+```{r}
+## Lasso Regression
+lr_cv <- glmnet(x, y)
+lr_cv
+```
+
+```{r}
+lasso_model <- cv.glmnet(x, y)
+
+lasso_model
+
+plot(lasso_model)
+
+optimal_lambda <- lasso_model$lambda.min
+optimal_lambda
+
+coef_values <- coef(lasso_model, s = optimal_lambda)
+coef_values
+```
+
+```{r}
+data_test <- na.omit(data_test)
+data_test$CoC_est <- as.numeric(data_test$CoC_est)
+x <- as.matrix(data_test[predictor_vars])
+y <- data_test$CoC_est
+lasso_model <- predict(lasso_model, newx = x, s = optimal_lambda)
+lasso_mse <- mean((lasso_model - y)^2)
+lasso_mse
+```
+
+
+
