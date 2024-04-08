@@ -1,0 +1,81 @@
+---
+title: "project"
+author: "YI-Hung, Lu"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+data <- read.csv("/Users/pikaqiu/Desktop/AU /class /2024 spring/Machine Learning /grouped_pd.csv")
+```
+
+```{r}
+data$year <- as.numeric(data$year)
+data$Control.of.Corruption..Estimate <- as.numeric(data$Control.of.Corruption..Estimate)
+data$Government.Effectiveness..Estimate <- as.numeric(data$Government.Effectiveness..Estimate)
+data$Regulatory.Quality..Estimate <- as.numeric(data$Regulatory.Quality..Estimate)
+data$Rule.of.Law..Estimate <- as.numeric(data$Rule.of.Law..Estimate)
+```
+```{r}
+summary(data)
+```
+
+```{r}
+set.seed(123)
+training = .5
+Z = sample(nrow(data), training*nrow(data))
+data.train = data[Z, ]
+data.test = data[-Z, ]
+model <- lm(CoC_est~ .  - Country.Name- X - Country.Code-PR_fh- CL_fh, data= data)
+```
+
+```{r}
+summary(model)
+```
+```{r}
+red.model <- lm(CoC_est~ .  - Country.Name- X - Country.Code-PR_fh- CL_fh- Pol_Sta_est-GDP_current-Region_fh-le-coef_ineq-Voice_Act_est -Gov_Eff_est , data= data)
+summary(red.model)
+```
+```{r}
+library(car)
+vif(red.model)
+```
+```{r}
+
+red.model <- lm(CoC_est~ .  - Country.Name- X - Country.Code-PR_fh- CL_fh- Pol_Sta_est-GDP_current-Region_fh-le-coef_ineq-Voice_Act_est -Gov_Eff_est -Reg_Qua_est-gii-Total_fh       -   hdi      - gni_pc, data= data)
+summary(red.model)
+
+```
+```{r}
+ 
+model1 <- lm(CoC_est~ Rule_Law_est, data= data)
+summary(model1)
+model2 <- lm(CoC_est~ Voice_Act_est , data= data)
+summary(model2)
+model3 <- lm(CoC_est~ Gov_Eff_est , data= data)
+summary(model3)
+model4 <- lm(CoC_est~ Reg_Qua_est , data= data)
+summary(model4)
+```
+```{r}
+freedom_model <- lm(CoC_est~ Total_fh+gni_pc + gii+coef_ineq+le+gni_pc, data= data)
+summary(freedom_model)
+```
+```{r}
+vif(freedom_model)
+```
+```{r}
+freedom_model <- lm(CoC_est~ Total_fh+gni_pc + gii, data= data)
+summary(freedom_model)
+vif(freedom_model)
+```
+```{r}
+freedom_model <- lm(CoC_est~ Total_fh+gni_pc +coef_ineq, data= data)
+summary(freedom_model)
+vif(freedom_model)
+```
+
