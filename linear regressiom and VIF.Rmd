@@ -10,72 +10,113 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(glmnet)
+library(boot)
+library(bootstrap)
 data <- read.csv("/Users/pikaqiu/Desktop/AU /class /2024 spring/Machine Learning /grouped_pd.csv")
-```
-
-```{r}
-data$year <- as.numeric(data$year)
-data$Control.of.Corruption..Estimate <- as.numeric(data$Control.of.Corruption..Estimate)
-data$Government.Effectiveness..Estimate <- as.numeric(data$Government.Effectiveness..Estimate)
-data$Regulatory.Quality..Estimate <- as.numeric(data$Regulatory.Quality..Estimate)
-data$Rule.of.Law..Estimate <- as.numeric(data$Rule.of.Law..Estimate)
-```
-```{r}
+data = na.omit(data)
 summary(data)
 ```
 
 ```{r}
-set.seed(123)
-training = .5
-Z = sample(nrow(data), training*nrow(data))
-data.train = data[Z, ]
-data.test = data[-Z, ]
 model <- lm(CoC_est~ .  - Country.Name- X - Country.Code-PR_fh- CL_fh, data= data)
 ```
 
 ```{r}
 summary(model)
 ```
+
 ```{r}
-red.model <- lm(CoC_est~ .  - Country.Name- X - Country.Code-PR_fh- CL_fh- Pol_Sta_est-GDP_current-Region_fh-le-coef_ineq-Voice_Act_est -Gov_Eff_est , data= data)
+red.model <- glm(CoC_est~ Reg_Qua_est +Rule_Law_est+Total_fh +hdi +gni_pc +gii , data= data)
 summary(red.model)
 ```
 ```{r}
 library(car)
 vif(red.model)
 ```
-```{r}
 
-red.model <- lm(CoC_est~ .  - Country.Name- X - Country.Code-PR_fh- CL_fh- Pol_Sta_est-GDP_current-Region_fh-le-coef_ineq-Voice_Act_est -Gov_Eff_est -Reg_Qua_est-gii-Total_fh       -   hdi      - gni_pc, data= data)
-summary(red.model)
+```{r}
+red.model <- cv.glm(data, red.model , K = 10)
+red.model$delta[2][1]
+```
 
-```
-```{r}
- 
-model1 <- lm(CoC_est~ Rule_Law_est, data= data)
-summary(model1)
-model2 <- lm(CoC_est~ Voice_Act_est , data= data)
-summary(model2)
-model3 <- lm(CoC_est~ Gov_Eff_est , data= data)
-summary(model3)
-model4 <- lm(CoC_est~ Reg_Qua_est , data= data)
-summary(model4)
-```
-```{r}
-freedom_model <- lm(CoC_est~ Total_fh+gni_pc + gii+coef_ineq+le+gni_pc, data= data)
-summary(freedom_model)
-```
-```{r}
-vif(freedom_model)
-```
+
 ```{r}
 freedom_model <- lm(CoC_est~ Total_fh+gni_pc + gii, data= data)
 summary(freedom_model)
 vif(freedom_model)
 ```
+
 ```{r}
 freedom_model <- lm(CoC_est~ Total_fh+gni_pc +coef_ineq, data= data)
 summary(freedom_model)
 vif(freedom_model)
 ```
+```{r}
+library(glmnet)
+library(boot)
+library(bootstrap)
+freedom_model <- glm(CoC_est~ Total_fh+gni_pc +coef_ineq, data= data)
+freedom_model <- cv.glm(data, freedom_model, K = 10)
+freedom_model$delta[2][1]
+```
 
+
+```{r}
+library(tidyverse)
+library(pls)
+set.seed(123)
+training = .5
+Z = sample(nrow(data), training*nrow(data))
+data.train = data[Z, ]
+data.test = data[-Z, ]
+pls_reg <- plsr(CoC_est~ .  - Country.Name- X - Country.Code, data = data.train,scale=T ,validation="CV")
+summary(pls_reg)
+```
+```{r}
+validationplot(pls_reg , val.type="MSEP")
+```
+
+Choose 12 comps has smallest RMSEP 0.3056
+```{r}
+pls_pred = predict(pls_reg , data.test, ncomp=15)
+#pls_pred
+mean((data.test$CoC_est - pls_pred)^2)
+```
+
+```{r}
+pcr_reg <- pcr(CoC_est~ .  - Country.Name- X - Country.Code, data = data.train,scale=T ,validation="CV")
+summary(pcr_reg)
+```
+
+```{r}
+par(mfrow = c(1, 2))
+validationplot(pcr_reg , val.type="MSEP")
+validationplot(pls_reg , val.type="MSEP")
+```
+
+```{r}
+pcr_pred = predict(pcr_reg , data.test, ncomp=19)
+#pls_pred
+mean((data.test$CoC_est - pcr_pred )^2)
+```
+
+| Method                        | Prediction MSE | Predictors |
+|-------------------------------|---------------:|:----------:|
+| Reduced Linear                | 0.09099682     |      6     |
+| freedom_model                 | 0.2185154      |      3     |
+| PLSR                          | 0.1050476      |  15  PCs   |
+| PCR                           | 0.09571732     |   19  PC   |
+
+
+VIF for the reduced model
+ Reg_Qua_est Rule_Law_est     Total_fh          hdi       gni_pc          gii 
+   12.211599    10.435609     2.892060     7.833994     5.679982     7.502929 
+   
+VIF for the freedom_model
+ Total_fh    gni_pc coef_ineq 
+ 1.421020  2.139749  1.920511 
+ 
+ 
+ 
+ 
