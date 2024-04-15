@@ -1,0 +1,201 @@
+---
+title: "K-Means Clustering"
+format: html
+editor: visual
+---
+
+```{r}
+library(dplyr)
+library(magrittr)
+library(readr)
+library(ggplot2)
+```
+
+## Reading In Data
+
+```{r}
+project_data <- read_csv("./project_data.csv")
+## created grouped averages for each country
+grouped_pd <- project_data %>%
+  group_by(`Country Name`, `Country Code`) %>%
+  summarize(
+    CoC_est = mean(`Control of Corruption: Estimate`, na.rm = T),
+    Gov_Eff_est = mean(`Government Effectiveness: Estimate`, na.rm = T),
+    Pol_Sta_est = mean(`Political Stability and Absence of Violence/Terrorism: Estimate`, na.rm = T),
+    Reg_Qua_est = mean(`Regulatory Quality: Estimate`, na.rm = T),
+    Rule_Law_est = mean(`Rule of Law: Estimate`, na.rm = T),
+    Voice_Act_est = mean(`Voice and Accountability: Estimate`, na.rm = T),
+    GDP_current = mean(`GDP (current US$)`, na.rm = T),
+    Region_fh = names(which.max(table(Region_fh))),
+    PR_fh = mean(PR_fh, na.rm = T),
+    CL_fh = mean(CL_fh, na.rm = T),
+    Total_fh = mean(Total_fh, na.rm = T),
+    hdi = mean(hdi, na.rm = T),
+    le = mean(le, na.rm = T),
+    gni_pc = mean(gnipc, na.rm = T),
+    coef_ineq = mean(coef_ineq, na.rm = T),
+    gii = mean(gii, na.rm = T)
+    ) 
+
+```
+
+```{r}
+scaled_df <- grouped_pd %>%
+  select(-Total_fh)
+scaled_df[, c(-1, -2, -10)] <- scale(scaled_df[, c(-1, -2, -10)])
+mtrx <- model.matrix(lm(CoC_est ~ . -1 -`Country Name` -`Country Code` -`Region_fh`, data = scaled_df))
+row.names(scaled_df) <- paste(grouped_pd$`Country Name`)
+dim(mtrx)  ## some countries dropped due to NA's in certain columns
+```
+
+```{r}
+set.seed(123)
+KM4 <- kmeans(mtrx, centers = 4)
+summary(KM4) 
+KM4$cluster[1:10]
+```
+
+```{r}
+k <- seq(2:nrow(mtrx))
+r2 <- vector("double", length = length(k))
+
+for (i in seq_along(k)) {
+  set.seed(123)
+  tempk <- kmeans(mtrx, k[i])
+  r2[i] <- tempk$betweenss/tempk$totss
+}
+plot(k, r2)
+plot(k[1:15], r2[1:15]) ## k = 9 or k = 4 seem reasonable
+
+```
+
+```{r}
+plot(grouped_pd$CoC_est, grouped_pd$Total_fh, col = KM4$cluster)
+```
+
+```{r}
+plot(grouped_pd$gni_pc, grouped_pd$CoC_est, col = KM4$cluster)
+```
+
+```{r}
+plot(grouped_pd$coef_ineq, grouped_pd$CoC_est, col = KM4$cluster)
+```
+
+```{r}
+no_na <- grouped_pd %>%
+  tidyr::drop_na()
+no_na$clusters <- KM4$cluster
+ggplot(data = no_na) +
+  geom_bar(aes(x = Region_fh, fill = as.factor(clusters)))
+```
+
+```{r}
+no_na %>%
+  group_by(clusters) %>%
+  summarize(
+    CoC_est = mean(`CoC_est`, na.rm = T),
+    Gov_Eff_est = mean(`Gov_Eff_est`, na.rm = T),
+    Pol_Sta_est = mean(`Pol_Sta_est`, na.rm = T),
+    Reg_Qua_est = mean(`Reg_Qua_est`, na.rm = T),
+    Rule_Law_est = mean(`Rule_Law_est`, na.rm = T),
+    Voice_Act_est = mean(`Voice_Act_est`, na.rm = T),
+    GDP_current = mean(`GDP_current`, na.rm = T),
+    PR_fh = mean(PR_fh, na.rm = T),
+    CL_fh = mean(CL_fh, na.rm = T),
+    Total_fh = mean(Total_fh, na.rm = T),
+    hdi = mean(hdi, na.rm = T),
+    le = mean(le, na.rm = T),
+    gni_pc = mean(gni_pc, na.rm = T),
+    coef_ineq = mean(coef_ineq, na.rm = T),
+    gii = mean(gii, na.rm = T),
+    n = n()
+  ) -> metrics_by_cluster
+
+metrics_by_cluster %>% 
+  dplyr::select(CoC_est, Total_fh, hdi, gni_pc, coef_ineq, n)
+
+```
+
+```{r}
+## Johnston's analysis finds that at K = 4, you can subdivide countries into 4 groups of cases (40-50) Influence Markets, Elite Cartels, Oligarchs and Clans, Official Moguls
+```
+
+```{r}
+
+
+ggplot(aes(x = CoC_est, y = hdi, col = as.factor(clusters)), data = no_na) +
+  geom_text(aes(label = `Country Code`), size = 2) +
+  scale_x_continuous(limits = c(-2, 2.5)) + 
+  scale_y_continuous(limits = c(0, 1)) 
+
+    
+```
+
+```{r}
+ggplot(aes(x = CoC_est, y = Total_fh, col = as.factor(clusters)), data = no_na) +
+  geom_text(aes(label = `Country Code`), size = 2)
+```
+
+```{r}
+vec <- list()
+for(i in 1:4){
+  df <- no_na %>%
+    filter(clusters == i)
+  plot <- ggplot(aes(x = CoC_est, y = hdi), data = df) + 
+    geom_text(aes(label = `Country Code`), size = 2) +
+    scale_x_continuous(limits = c(-2, 2.5)) + 
+    scale_y_continuous(limits = c(0, 1)) 
+  vec[[i]] <- plot
+}
+vec
+```
+
+```{r}
+no_na %>%
+  filter(clusters == 1)
+```
+
+```{r}
+KM9 <- kmeans(mtrx, centers = 9)
+summary(KM9) 
+```
+
+```{r}
+no_na$clusters <- KM9$cluster
+ggplot(data = no_na) +
+  geom_bar(aes(x = Region_fh, fill = as.factor(clusters)))
+```
+
+```{r}
+no_na %>%
+  group_by(clusters) %>%
+  summarize(
+    CoC_est = mean(`CoC_est`, na.rm = T),
+    Gov_Eff_est = mean(`Gov_Eff_est`, na.rm = T),
+    Pol_Sta_est = mean(`Pol_Sta_est`, na.rm = T),
+    Reg_Qua_est = mean(`Reg_Qua_est`, na.rm = T),
+    Rule_Law_est = mean(`Rule_Law_est`, na.rm = T),
+    Voice_Act_est = mean(`Voice_Act_est`, na.rm = T),
+    GDP_current = mean(`GDP_current`, na.rm = T),
+    PR_fh = mean(PR_fh, na.rm = T),
+    CL_fh = mean(CL_fh, na.rm = T),
+    Total_fh = mean(Total_fh, na.rm = T),
+    hdi = mean(hdi, na.rm = T),
+    le = mean(le, na.rm = T),
+    gni_pc = mean(gni_pc, na.rm = T),
+    coef_ineq = mean(coef_ineq, na.rm = T),
+    gii = mean(gii, na.rm = T),
+    n = n()
+  ) -> metrics_by_cluster
+
+metrics_by_cluster %>% 
+  dplyr::select(CoC_est, Total_fh, hdi, gni_pc, coef_ineq, n)
+```
+
+```{r}
+ggplot(aes(x = CoC_est, y = hdi, col = as.factor(clusters)), data = no_na) +
+  geom_text(aes(label = `Country Code`), size = 2) +
+  scale_x_continuous(limits = c(-2, 2.5)) + 
+  scale_y_continuous(limits = c(0, 1)) 
+
+```
