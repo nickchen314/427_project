@@ -11,7 +11,7 @@ library(readr)
 library(ggplot2)
 ```
 
-## Reading In Data
+## K-Means: Reading In Data
 
 ```{r}
 project_data <- read_csv("./project_data.csv")
@@ -56,6 +56,8 @@ KM4$cluster[1:10]
 ```
 
 ```{r}
+
+## validation plots for clusters
 k <- seq(2:nrow(mtrx))
 r2 <- vector("double", length = length(k))
 
@@ -79,17 +81,34 @@ plot(grouped_pd$gni_pc, grouped_pd$CoC_est, col = KM4$cluster)
 
 ```{r}
 plot(grouped_pd$coef_ineq, grouped_pd$CoC_est, col = KM4$cluster)
+
 ```
 
 ```{r}
+## Influence markets: within system corruption - institutionalized corrupt actors mostly through private financial and business sectors (1)
+## Elite Cartels: moderately weak institutions and embedded political machines>  New or reconstructed market democracies (SK, Chile, Poland, Hungary) (4)
+## oligarchs and clans: weak institutions, lots of private amassment of wealth (Mexico, Russia, Phillipines) (3)
+## official moguls - Juntas - African and MENA states, China (2)
+
+## breakdown of clusters by Region
+cols <- palette(c('yellow','green','orange','red'))
 no_na <- grouped_pd %>%
   tidyr::drop_na()
-no_na$clusters <- KM4$cluster
+no_na$clusters <- KM4$cluster 
+no_na <- no_na %>% 
+  mutate(clusters = case_when(
+    clusters == 1 ~ "Influence Markets",
+    clusters == 4 ~ "Elite Cartels",
+    clusters == 3 ~ "Official Moguls",
+    clusters == 2 ~ "Oligarchs and Clans"
+  ))
 ggplot(data = no_na) +
-  geom_bar(aes(x = Region_fh, fill = as.factor(clusters)))
+  geom_bar(aes(x = Region_fh, fill = as.factor(clusters))) 
 ```
 
 ```{r}
+
+## grouped metrics by cluster to check for validity
 no_na %>%
   group_by(clusters) %>%
   summarize(
@@ -112,7 +131,7 @@ no_na %>%
   ) -> metrics_by_cluster
 
 metrics_by_cluster %>% 
-  dplyr::select(CoC_est, Total_fh, hdi, gni_pc, coef_ineq, n)
+  dplyr::select(clusters, gni_pc, Rule_Law_est, CoC_est, Gov_Eff_est,Total_fh, hdi, gni_pc, coef_ineq, n)
 
 ```
 
@@ -121,38 +140,49 @@ metrics_by_cluster %>%
 ```
 
 ```{r}
-
-
+## HDI vs CoC
 ggplot(aes(x = CoC_est, y = hdi, col = as.factor(clusters)), data = no_na) +
   geom_text(aes(label = `Country Code`), size = 2) +
   scale_x_continuous(limits = c(-2, 2.5)) + 
-  scale_y_continuous(limits = c(0, 1)) 
+  scale_y_continuous(limits = c(.25, 1))+
+  scale_fill_manual(values = cols) +
+  labs(title = "K-Means Clusters HDI vs Control of Corruption", color = "Clusters") +       
+  scale_fill_discrete(guide = guide_legend()) + 
+  theme(legend.position="bottom") +
+  guides(color = guide_legend(nrow = 2))
+
+
 
     
 ```
 
 ```{r}
+## FH vs CoC
 ggplot(aes(x = CoC_est, y = Total_fh, col = as.factor(clusters)), data = no_na) +
-  geom_text(aes(label = `Country Code`), size = 2)
+  geom_text(aes(label = `Country Code`), size = 2) +
+  labs(title = "K-Means Clusters Total FH vs Control of Corruption", color = "Clusters") +       
+  scale_fill_discrete(guide = guide_legend()) + 
+  theme(legend.position="bottom") +
+  guides(color = guide_legend(nrow = 2))
+
+
 ```
 
 ```{r}
+## Plot of hdi vs CoC by cluster
 vec <- list()
-for(i in 1:4){
+cluster_names = c("Influence Markets", "Oligarchs and Clans", "Elite Cartels", "Official Moguls")
+for(i in cluster_names){
   df <- no_na %>%
     filter(clusters == i)
   plot <- ggplot(aes(x = CoC_est, y = hdi), data = df) + 
     geom_text(aes(label = `Country Code`), size = 2) +
     scale_x_continuous(limits = c(-2, 2.5)) + 
-    scale_y_continuous(limits = c(0, 1)) 
+    scale_y_continuous(limits = c(0, 1)) +
+    labs(title = i)
   vec[[i]] <- plot
 }
 vec
-```
-
-```{r}
-no_na %>%
-  filter(clusters == 1)
 ```
 
 ```{r}
@@ -161,13 +191,102 @@ summary(KM9)
 ```
 
 ```{r}
-no_na$clusters <- KM9$cluster
-ggplot(data = no_na) +
-  geom_bar(aes(x = Region_fh, fill = as.factor(clusters)))
+#no_na$clusters <- KM9$cluster
+#ggplot(data = no_na) +
+  #geom_bar(aes(x = Region_fh, fill = as.factor(clusters)))
 ```
 
 ```{r}
-no_na %>%
+# no_na %>%
+#   group_by(clusters) %>%
+#   summarize(
+#     CoC_est = mean(`CoC_est`, na.rm = T),
+#     Gov_Eff_est = mean(`Gov_Eff_est`, na.rm = T),
+#     Pol_Sta_est = mean(`Pol_Sta_est`, na.rm = T),
+#     Reg_Qua_est = mean(`Reg_Qua_est`, na.rm = T),
+#     Rule_Law_est = mean(`Rule_Law_est`, na.rm = T),
+#     Voice_Act_est = mean(`Voice_Act_est`, na.rm = T),
+#     GDP_current = mean(`GDP_current`, na.rm = T),
+#     PR_fh = mean(PR_fh, na.rm = T),
+#     CL_fh = mean(CL_fh, na.rm = T),
+#     Total_fh = mean(Total_fh, na.rm = T),
+#     hdi = mean(hdi, na.rm = T),
+#     le = mean(le, na.rm = T),
+#     gni_pc = mean(gni_pc, na.rm = T),
+#     coef_ineq = mean(coef_ineq, na.rm = T),
+#     gii = mean(gii, na.rm = T),
+#     n = n()
+#   ) -> metrics_by_cluster
+# 
+# metrics_by_cluster %>%
+#   dplyr::select(CoC_est, Total_fh, hdi, gni_pc, coef_ineq, n)
+```
+
+```{r}
+# ggplot(aes(x = CoC_est, y = hdi, col = as.factor(clusters)), data = no_na) +
+#   geom_text(aes(label = `Country Code`), size = 2) +
+#   scale_x_continuous(limits = c(-2, 2.5)) + 
+#   scale_y_continuous(limits = c(0, 1)) 
+
+```
+
+## MAPPING Portion
+
+```{r}
+library(rworldmap)
+sPDF <- joinCountryData2Map(no_na, joinCode = "ISO3", nameJoinColumn = "Country Code")
+op <- palette(c('yellow','green','orange','red'))
+mapCountryData( sPDF, nameColumnToPlot="clusters",
+                catMethod='categorical',
+                mapTitle='Syndromes of Corruption - K-Means clustering k = 4',
+                colourPalette='palette',
+                oceanCol='lightblue',
+                missingCountryCol='white')
+ 
+## oligarchs and clans was post cold war framing - need violence to secure power 
+```
+
+## Testing K = 5 and K = 6
+
+```{r}
+# k <- seq(1:10)
+# KM_list <- vector(length = length(k))
+# for (i in seq_along(k)){
+#   set.seed(123)
+#   tempk <- kmeans(mtrx, centers = k[i])
+#   no_na$clusters <- tempk$cluster
+#   KM_list[[i]] <- no_na
+# }
+
+
+set.seed(123)
+KM5 <- kmeans(mtrx, centers = 5)
+set.seed(123)
+KM6 <- kmeans(mtrx, centers = 6)
+
+km5 <- no_na
+km5$clusters <- KM5$cluster
+
+km6 <- no_na
+km6$clusters <- KM6$cluster
+```
+
+```{r}
+## k = 5 plot
+library(rworldmap)
+sPDF2 <- joinCountryData2Map(km5, joinCode = "ISO3", nameJoinColumn = "Country Code")
+op <- palette(c('yellow','green','orange','red','purple'))
+mapCountryData( sPDF2, nameColumnToPlot="clusters",
+                catMethod='categorical',
+                mapTitle='Syndromes of Corruption',
+                colourPalette='palette',
+                oceanCol='lightblue',
+                missingCountryCol='white')
+```
+
+```{r}
+return_summary <- function(df){
+  df %>%
   group_by(clusters) %>%
   summarize(
     CoC_est = mean(`CoC_est`, na.rm = T),
@@ -186,16 +305,97 @@ no_na %>%
     coef_ineq = mean(coef_ineq, na.rm = T),
     gii = mean(gii, na.rm = T),
     n = n()
-  ) -> metrics_by_cluster
-
-metrics_by_cluster %>% 
-  dplyr::select(CoC_est, Total_fh, hdi, gni_pc, coef_ineq, n)
+  )
+}
+return_summary(km5) %>% 
+  dplyr::select(clusters, gni_pc, Rule_Law_est, CoC_est, Total_fh, hdi, gni_pc, coef_ineq, n)
+km5_df <- return_summary(km5)
 ```
 
 ```{r}
-ggplot(aes(x = CoC_est, y = hdi, col = as.factor(clusters)), data = no_na) +
-  geom_text(aes(label = `Country Code`), size = 2) +
-  scale_x_continuous(limits = c(-2, 2.5)) + 
-  scale_y_continuous(limits = c(0, 1)) 
-
+## k = 6 plot
+library(rworldmap)
+sPDF3 <- joinCountryData2Map(km6, joinCode = "ISO3", nameJoinColumn = "Country Code")
+op <- palette(c('yellow','green','orange','red'))
+mapCountryData( sPDF3, nameColumnToPlot="clusters",
+                catMethod='categorical',
+                mapTitle='Syndromes of Corruption',
+                colourPalette='palette',
+                oceanCol='lightblue',
+                missingCountryCol='white')
 ```
+
+```{r}
+return_summary(km6) %>% 
+  dplyr::select(clusters, gni_pc, Rule_Law_est, CoC_est, Total_fh, hdi, gni_pc, coef_ineq, n)
+```
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+
+ggplot(aes(x = CoC_est, y = Total_fh, col = as.factor(clusters)), data = km5) +
+  geom_text(aes(label = `Country Code`), size = 2)
+ggplot(aes(x = CoC_est, y = hdi, col = as.factor(clusters)), data = km5) +
+  geom_text(aes(label = `Country Code`), size = 2)
+```
+
+```{r, figures-side, fig.show="hold", out.width="50%"}
+
+ggplot(aes(x = CoC_est, y = Total_fh, col = as.factor(clusters)), data = km6) +
+  geom_text(aes(label = `Country Code`), size = 2)
+ggplot(aes(x = CoC_est, y = hdi, col = as.factor(clusters)), data = km6) +
+  geom_text(aes(label = `Country Code`), size = 2)
+```
+
+These clusters seem less robust and less interpratable. Need qualitative validation by experts to verify if these clusters have any analytical significance.
+
+## Regressions for Each Cluster
+
+```{r}
+reg_data <- no_na %>%
+  mutate(clusters = as.factor(clusters))
+cluster_model <- glm(CoC_est~ Total_fh*clusters+gni_pc*clusters +coef_ineq*clusters, data= reg_data)
+summary(cluster_model)
+red_reg <- glm(CoC_est~ gni_pc*clusters, data= reg_data)
+summary(red_reg)
+```
+
+```{r}
+# model_lm <- function(cluster){
+# cluster_model_im <- glm(CoC_est~ ., 
+#                         data= no_na %>% filter(clusters == cluster) %>%
+#                           mutate(Region_fh = as.factor(Region_fh)))
+# }
+# 
+# model_lm("Influence Markets")
+# 
+# reg_data <- no_na %>%
+# ungroup() %>%
+# mutate(Region_fh = as.factor(Region_fh)) %>%
+# filter(clusters == "Influence Markets") %>%
+# select(-`Country Name`, -`Country Code`, -`clusters`) 
+# 
+# summary(cluster_model_im <- glm(CoC_est~ . , data= reg_data))
+#  
+```
+
+```{r}
+cluster_model_im <- glm(CoC_est~ Total_fh + gni_pc + gii + coef_ineq, data= reg_data %>% filter(clusters == "Oligarchs and Clans"))
+summary(cluster_model_im)
+```
+
+```{r}
+cluster_model_im <- glm(CoC_est~ Total_fh + gni_pc + coef_ineq + gii, data= reg_data %>% filter(clusters == "Elite Cartels"))
+summary(cluster_model_im)
+```
+
+```{r}
+cluster_model_im <- glm(CoC_est~ Total_fh + gni_pc + coef_ineq + gii, data= reg_data %>% filter(clusters == "Official Moguls"))
+summary(cluster_model_im)
+```
+
+```{r}
+cluster_model_im <- glm(CoC_est~ Total_fh + gni_pc + coef_ineq + gii, data= reg_data %>% filter(clusters == "Influence Markets"))
+summary(cluster_model_im)
+```
+
+The significance of variables changes significantly dependent on the cluster
